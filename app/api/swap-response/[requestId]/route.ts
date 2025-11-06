@@ -9,7 +9,7 @@ type SwapResponseBody = {
 
 export async function POST(
   req: Request,
-  { params }: { params: { requestId: string } }
+  { params }: { params: Promise<{ requestId: string }> }
 ) {
   try {
     const user = getUserFromRequest(req);
@@ -20,7 +20,7 @@ export async function POST(
       );
 
     const { accepted }: SwapResponseBody = await req.json();
-    const { requestId } = params;
+    const { requestId } = await params;
 
     if (typeof accepted !== "boolean") {
       return NextResponse.json(
