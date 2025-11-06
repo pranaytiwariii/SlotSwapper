@@ -40,7 +40,38 @@ interface Task {
   start?: string;
   end?: string;
   description?: string;
+  status?: "SWAPPABLE" | "BUSY" | "SWAP_PENDING";
   createdAt?: string;
+}
+
+interface SwappableSlot {
+  _id: string;
+  userId: string;
+  title: string;
+  date: string;
+  start?: string;
+  end?: string;
+  description?: string;
+  status: string;
+  owner: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+}
+
+interface SwapRequest {
+  _id: string;
+  requesterId: string;
+  targetUserId: string;
+  requesterSlotId: string;
+  targetSlotId: string;
+  status: "PENDING" | "ACCEPTED" | "REJECTED";
+  createdAt: string;
+  requesterSlot: Task;
+  targetSlot: Task;
+  requester: { name: string; email: string };
+  targetUser: { name: string; email: string };
 }
 
 interface UserProfile {
@@ -58,7 +89,8 @@ export default function Home() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [otherUsersTasks, setOtherUsersTasks] = useState<Task[]>([]);
+  const [swappableSlots, setSwappableSlots] = useState<SwappableSlot[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<SwapRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showSwapModal, setShowSwapModal] = useState(false);
@@ -87,7 +119,8 @@ export default function Home() {
       setUser(userData);
       loadTasks(savedToken);
       loadUserProfile(savedToken);
-      loadOtherUsersTasks(savedToken);
+      loadSwappableSlots(savedToken);
+      loadPendingRequests(savedToken);
     }
   }, []);
 
@@ -119,24 +152,31 @@ export default function Home() {
     }
   };
 
-  const loadOtherUsersTasks = async (authToken: string) => {
+  const loadSwappableSlots = async (authToken: string) => {
     try {
-      // In a real app, you'd have an endpoint to get other users' tasks
-      // For demo, we'll seed data and then filter out current user's tasks
-      const allTasksResponse = await fetch("/api/tasks", {
+      const response = await fetch("/api/swappable-slots", {
         headers: { Authorization: `Bearer ${authToken}` },
       });
-      const allTasksData = await allTasksResponse.json();
-
-      if (allTasksData.ok && user) {
-        // Filter to get tasks from other users (for swap demo)
-        const otherTasks = allTasksData.tasks.filter(
-          (task: Task) => task.userId !== user.id
-        );
-        setOtherUsersTasks(otherTasks);
+      const data = await response.json();
+      if (data.ok) {
+        setSwappableSlots(data.swappableSlots);
       }
     } catch (err) {
-      console.error("Failed to load other users tasks:", err);
+      console.error("Failed to load swappable slots:", err);
+    }
+  };
+
+  const loadPendingRequests = async (authToken: string) => {
+    try {
+      const response = await fetch("/api/pending-requests", {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setPendingRequests(data.pendingRequests);
+      }
+    } catch (err) {
+      console.error("Failed to load pending requests:", err);
     }
   };
 
@@ -149,7 +189,8 @@ export default function Home() {
         if (token) {
           await loadTasks(token);
           await loadUserProfile(token);
-          await loadOtherUsersTasks(token);
+          await loadSwappableSlots(token);
+          await loadPendingRequests(token);
         }
       }
     } catch (err) {
@@ -157,36 +198,72 @@ export default function Home() {
     }
   };
 
-  const handleSwapTask = async (myTaskId: string, otherTaskId: string) => {
+  const handleSwapRequest = async (myTaskId: string, theirTaskId: string) => {
     if (!token) return;
 
     setLoading(true);
     try {
-      const response = await fetch("/api/tasks/swap", {
+      const response = await fetch("/api/swap-request", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          myTaskId: myTaskId,
-          otherTaskId: otherTaskId,
+          mySlotId: myTaskId,
+          theirSlotId: theirTaskId,
         }),
       });
 
       const data = await response.json();
       if (data.ok) {
-        // Reload all data to reflect the swap
+        // Reload all data to reflect the request
         await loadTasks(token);
         await loadUserProfile(token);
-        await loadOtherUsersTasks(token);
+        await loadSwappableSlots(token);
+        await loadPendingRequests(token);
         setShowSwapModal(false);
         setSelectedTaskForSwap(null);
+        alert("Swap request sent successfully!");
       } else {
-        setError(data.error || "Failed to swap tasks");
+        setError(data.error || "Failed to send swap request");
       }
     } catch (err) {
-      setError("Failed to swap tasks");
+      setError("Failed to send swap request");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSwapResponse = async (requestId: string, accepted: boolean) => {
+    if (!token) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/swap-response/${requestId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ accepted }),
+      });
+
+      const data = await response.json();
+      if (data.ok) {
+        // Reload all data to reflect the response
+        await loadTasks(token);
+        await loadUserProfile(token);
+        await loadSwappableSlots(token);
+        await loadPendingRequests(token);
+        alert(
+          accepted ? "Swap completed successfully!" : "Swap request declined"
+        );
+      } else {
+        setError(data.error || "Failed to respond to swap request");
+      }
+    } catch (err) {
+      setError("Failed to respond to swap request");
     } finally {
       setLoading(false);
     }
@@ -214,7 +291,8 @@ export default function Home() {
         setPassword("");
         await loadTasks(data.token);
         await loadUserProfile(data.token);
-        await loadOtherUsersTasks(data.token);
+        await loadSwappableSlots(data.token);
+        await loadPendingRequests(data.token);
       } else {
         setError(data.error || "Login failed");
       }
@@ -248,7 +326,8 @@ export default function Home() {
         setPassword("");
         await loadTasks(data.token);
         await loadUserProfile(data.token);
-        await loadOtherUsersTasks(data.token);
+        await loadSwappableSlots(data.token);
+        await loadPendingRequests(data.token);
       } else {
         setError(data.error || "Registration failed");
       }
@@ -293,7 +372,8 @@ export default function Home() {
         // Reload all data to reflect the new task in user profile too
         await loadTasks(token);
         await loadUserProfile(token);
-        await loadOtherUsersTasks(token);
+        await loadSwappableSlots(token);
+        await loadPendingRequests(token);
         setNewTaskTitle("");
         setNewTaskDate("");
         setNewTaskStart("");
@@ -324,7 +404,8 @@ export default function Home() {
         // Reload all data to reflect the deletion in user profile too
         await loadTasks(token);
         await loadUserProfile(token);
-        await loadOtherUsersTasks(token);
+        await loadSwappableSlots(token);
+        await loadPendingRequests(token);
       } else {
         setError(data.error || "Failed to delete task");
       }
@@ -488,6 +569,12 @@ export default function Home() {
               My Tasks ({tasks.length})
             </TabsTrigger>
             <TabsTrigger value="add-task">Add Task</TabsTrigger>
+            <TabsTrigger value="swappable">
+              Swappable ({swappableSlots.length})
+            </TabsTrigger>
+            <TabsTrigger value="pending">
+              Pending ({pendingRequests.length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="calendar">
@@ -526,7 +613,20 @@ export default function Home() {
                       <CardHeader>
                         <CardTitle className="flex justify-between items-start">
                           <span>{task.title}</span>
-                          <Badge variant="outline">{task.date}</Badge>
+                          <div className="flex gap-2">
+                            <Badge variant="outline">{task.date}</Badge>
+                            <Badge
+                              variant={
+                                task.status === "SWAPPABLE"
+                                  ? "default"
+                                  : task.status === "SWAP_PENDING"
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                            >
+                              {task.status || "SWAPPABLE"}
+                            </Badge>
+                          </div>
                         </CardTitle>
                         {task.description && (
                           <CardDescription>{task.description}</CardDescription>
@@ -542,16 +642,24 @@ export default function Home() {
                             </span>
                           </div>
                           <div className="flex justify-between gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedTaskForSwap(task);
-                                setShowSwapModal(true);
-                              }}
-                            >
-                              Request Swap
-                            </Button>
+                            {task.status === "SWAPPABLE" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedTaskForSwap(task);
+                                  setShowSwapModal(true);
+                                }}
+                              >
+                                Request Swap
+                              </Button>
+                            )}
+                            {task.status === "SWAP_PENDING" && (
+                              <Badge variant="secondary">Swap Pending</Badge>
+                            )}
+                            {task.status === "BUSY" && (
+                              <Badge variant="outline">Busy</Badge>
+                            )}
                             <Button
                               size="sm"
                               variant="destructive"
@@ -638,6 +746,155 @@ export default function Home() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="swappable">
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Swappable Slots</CardTitle>
+                <CardDescription>
+                  Slots from other users that you can swap with
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {swappableSlots.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    No swappable slots available at the moment.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {swappableSlots.map((slot) => (
+                      <Card key={slot._id} className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-semibold">{slot.title}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {slot.date} •{" "}
+                              {slot.start
+                                ? `${slot.start} - ${slot.end}`
+                                : "All day"}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Owner: {slot.owner.name}
+                            </p>
+                            {slot.description && (
+                              <p className="text-sm mt-2">{slot.description}</p>
+                            )}
+                          </div>
+                          <Badge variant="secondary">{slot.status}</Badge>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pending">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Swap Requests</CardTitle>
+                <CardDescription>
+                  Manage your incoming and outgoing swap requests
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pendingRequests.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    No pending swap requests.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingRequests.map((request) => (
+                      <Card key={request._id} className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-start">
+                            <Badge>{request.status}</Badge>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(request.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">
+                                {request.requesterId === user?.id
+                                  ? "Your Slot"
+                                  : "Their Slot"}
+                              </p>
+                              <p className="font-semibold">
+                                {request.requesterSlot.title}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {request.requesterSlot.date} •{" "}
+                                {request.requesterSlot.start
+                                  ? `${request.requesterSlot.start} - ${request.requesterSlot.end}`
+                                  : "All day"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Owner: {request.requester.name}
+                              </p>
+                            </div>
+
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">
+                                {request.targetUserId === user?.id
+                                  ? "Your Slot"
+                                  : "Their Slot"}
+                              </p>
+                              <p className="font-semibold">
+                                {request.targetSlot.title}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {request.targetSlot.date} •{" "}
+                                {request.targetSlot.start
+                                  ? `${request.targetSlot.start} - ${request.targetSlot.end}`
+                                  : "All day"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Owner: {request.targetUser.name}
+                              </p>
+                            </div>
+                          </div>
+
+                          {request.targetUserId === user?.id && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  handleSwapResponse(request._id, true)
+                                }
+                                disabled={loading}
+                              >
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  handleSwapResponse(request._id, false)
+                                }
+                                disabled={loading}
+                              >
+                                Decline
+                              </Button>
+                            </div>
+                          )}
+
+                          {request.requesterId === user?.id && (
+                            <p className="text-sm text-muted-foreground">
+                              Waiting for {request.targetUser.name} to
+                              respond...
+                            </p>
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         <div className="mt-8">
@@ -684,31 +941,34 @@ export default function Home() {
                   <p className="text-sm font-medium mb-2">
                     Select task to swap with:
                   </p>
-                  {otherUsersTasks.length === 0 ? (
+                  {swappableSlots.length === 0 ? (
                     <p className="text-muted-foreground text-sm">
-                      No other users' tasks available for swapping.
+                      No swappable slots available.
                     </p>
                   ) : (
                     <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {otherUsersTasks.map((task) => (
+                      {swappableSlots.map((slot) => (
                         <div
-                          key={task._id}
+                          key={slot._id}
                           className="p-3 border border-border rounded cursor-pointer hover:bg-muted"
                           onClick={() => {
                             if (selectedTaskForSwap) {
-                              handleSwapTask(selectedTaskForSwap._id, task._id);
+                              handleSwapRequest(
+                                selectedTaskForSwap._id,
+                                slot._id
+                              );
                             }
                           }}
                         >
-                          <p className="font-medium">{task.title}</p>
+                          <p className="font-medium">{slot.title}</p>
                           <p className="text-sm text-muted-foreground">
-                            {task.date} •{" "}
-                            {task.start
-                              ? `${task.start} - ${task.end}`
+                            {slot.date} •{" "}
+                            {slot.start
+                              ? `${slot.start} - ${slot.end}`
                               : "All day"}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Owner: {task.userId}
+                            Owner: {slot.owner.name}
                           </p>
                         </div>
                       ))}

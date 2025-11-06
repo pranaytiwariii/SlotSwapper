@@ -79,6 +79,7 @@ export async function POST(req: Request) {
       end: end ?? null,
       date,
       description: description ?? null,
+      status: "SWAPPABLE", // Default status for new tasks
       createdAt: now,
     };
 

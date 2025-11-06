@@ -1,56 +1,524 @@
-# SlotSwapper - Task/Shift Management System
+# SlotSwapper - Task/Shift Swapping System
 
-## ðŸŽ¯ Project Overview
-
-SlotSwapper is a full-stack web application for managing tasks and shift swaps between users. Built with Next.js, TypeScript, and MongoDB, it provides an intuitive interface for users to manage their schedules, request task swaps, and collaborate with team members.
-
-## ðŸš€ Tech Stack
+## 🚀 Tech Stack
 
 ### Frontend
 
-- **Next.js 16** (with Turbopack)
-- **React 19.2.0**
-- **TypeScript**
-- **Tailwind CSS** - Styling
-- **shadcn/ui** - UI Component Library
-- **Radix UI** - Accessible components
-- **vaul** - Drawer component
+- **Next.js 16** - React framework with App Router and Turbopack
+- **React 19.2.0** - Modern React with latest features
+- **TypeScript** - Type-safe JavaScript
+- **Tailwind CSS** - Utility-first CSS framework
+- **shadcn/ui** - Modern component library
+- **Radix UI** - Accessible, unstyled components
+- **Lucide React** - Beautiful icon library
 
 ### Backend
 
-- **Next.js API Routes** (App Router)
-- **MongoDB** - Database
-- **MongoDB Node.js Driver** - Database client
+- **Next.js API Routes** - Serverless API with App Router
+- **MongoDB** - NoSQL document database
+- **MongoDB Node.js Driver** - Official database client
+- **JWT (jsonwebtoken)** - Authentication tokens
+- **bcryptjs** - Password hashing
 
-### Tools & Development
+### Development Tools
 
-- **npm** - Package manager (with legacy-peer-deps for React 19 compatibility)
-- **ESLint** - Code linting
-- **Vercel Analytics** - Analytics (optional)
+- **npm** - Package manager
+- **ESLint** - Code linting and formatting
+- **TypeScript** - Static type checking
 
-## ðŸ“‹ Features
+## 🛠️ Installation & Setup
 
-### Core Functionality
+### Prerequisites
 
-1. **Task Management**
+- Node.js 18+ installed
+- MongoDB database (local or cloud)
+- Git for version control
 
-   - Create, read, update, delete tasks
-   - Assign tasks to specific users
-   - Set task dates and times
-   - View tasks by day/month
+### 1. Clone the Repository
 
-2. **Calendar View**
+```bash
+git clone https://github.com/pranaytiwariii/SlotSwapper.git
+cd SlotSwapper
+```
 
-   - Interactive calendar with clickable days
-   - Per-user month views
-   - Task visualization by date
+### 2. Install Dependencies
 
-3. **Task Swap Requests**
+```bash
+npm install --legacy-peer-deps
+```
 
-   - Request to swap tasks with other users
-   - Sticky requests tab for quick access
-   - Detailed request view with times
-   - Accept/reject swap requests
+_Note: Using --legacy-peer-deps for React 19 compatibility_
+
+### 3. Environment Configuration
+
+Create a `.env.local` file in the root directory:
+
+```env
+MONGODB_URI=mongodb://localhost:27017/slotswapper
+# OR for MongoDB Atlas:
+# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/slotswapper
+
+JWT_SECRET=your-super-secret-jwt-key-here
+NODE_ENV=development
+```
+
+### 4. Start Development Server
+
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:3000`
+
+## 🧪 API Testing Guide
+
+### Authentication Endpoints
+
+#### 1. User Registration
+
+```bash
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "securepassword"
+}
+```
+
+#### 2. User Login
+
+```bash
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "securepassword"
+}
+```
+
+### Core API Endpoints
+
+#### 3. Seed Test Data (Development Only)
+
+```bash
+POST /api/dev/seed
+```
+
+_Creates Alice and Bob with sample tasks for testing_
+
+#### 4. Get User's Tasks
+
+```bash
+GET /api/tasks
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+#### 5. Create New Task
+
+```bash
+POST /api/tasks
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "title": "Team Meeting",
+  "date": "2025-11-10",
+  "start": "09:00",
+  "end": "10:00",
+  "description": "Weekly team sync"
+}
+```
+
+### Advanced Swap System APIs
+
+#### 6. Get Swappable Slots
+
+```bash
+GET /api/swappable-slots
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+_Returns all SWAPPABLE slots from other users_
+
+#### 7. Create Swap Request
+
+```bash
+POST /api/swap-request
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "mySlotId": "YOUR_TASK_ID",
+  "theirSlotId": "TARGET_TASK_ID"
+}
+```
+
+#### 8. Get Pending Requests
+
+```bash
+GET /api/pending-requests
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+#### 9. Respond to Swap Request
+
+```bash
+POST /api/swap-response
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "requestId": "SWAP_REQUEST_ID",
+  "accepted": true
+}
+```
+
+## 🧪 PowerShell Testing Examples
+
+### Complete API Test Flow
+
+```powershell
+# 1. Seed test data
+Invoke-RestMethod -Uri "http://localhost:3000/api/dev/seed" -Method POST
+
+# 2. Login as Alice
+$aliceLogin = Invoke-RestMethod -Uri "http://localhost:3000/api/auth/login" -Method POST -Body '{"email":"alice@example.com","password":"secret123"}' -ContentType "application/json"
+$aliceHeaders = @{ Authorization = "Bearer $($aliceLogin.token)" }
+
+# 3. Login as Bob
+$bobLogin = Invoke-RestMethod -Uri "http://localhost:3000/api/auth/login" -Method POST -Body '{"email":"bob@example.com","password":"secret456"}' -ContentType "application/json"
+$bobHeaders = @{ Authorization = "Bearer $($bobLogin.token)" }
+
+# 4. Get Alice's tasks
+Invoke-RestMethod -Uri "http://localhost:3000/api/tasks" -Headers $aliceHeaders
+
+# 5. Get swappable slots (Alice sees Bob's slots)
+Invoke-RestMethod -Uri "http://localhost:3000/api/swappable-slots" -Headers $aliceHeaders
+
+# 6. Create swap request
+$swapRequest = @{ mySlotId = "ALICE_TASK_ID"; theirSlotId = "BOB_TASK_ID" } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3000/api/swap-request" -Method POST -Body $swapRequest -ContentType "application/json" -Headers $aliceHeaders
+
+# 7. Check pending requests
+Invoke-RestMethod -Uri "http://localhost:3000/api/pending-requests" -Headers $bobHeaders
+
+# 8. Accept swap request
+$acceptSwap = @{ requestId = "REQUEST_ID"; accepted = $true } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3000/api/swap-response" -Method POST -Body $acceptSwap -ContentType "application/json" -Headers $bobHeaders
+```
+
+## 📋 Database Schema
+
+### Users Collection
+
+```typescript
+{
+  _id: ObjectId,
+  name: string,
+  email: string,
+  password: string, // bcrypt hashed
+  taskIds: ObjectId[], // Array of task references
+  createdAt: Date
+}
+```
+
+### Tasks Collection
+
+```typescript
+{
+  _id: ObjectId,
+  userId: ObjectId,
+  title: string,
+  description: string,
+  date: string, // YYYY-MM-DD format
+  start: string, // HH:MM format
+  end: string, // HH:MM format
+  status: "SWAPPABLE" | "BUSY" | "SWAP_PENDING",
+  createdAt: Date
+}
+```
+
+### SwapRequests Collection
+
+```typescript
+{
+  _id: ObjectId,
+  requesterId: ObjectId, // User requesting the swap
+  recipientId: ObjectId, // User receiving the request
+  mySlotId: ObjectId, // Requester's task
+  theirSlotId: ObjectId, // Recipient's task
+  status: "pending" | "accepted" | "rejected",
+  createdAt: Date,
+  respondedAt?: Date
+}
+```
+
+## 🔄 Swap System Logic
+
+### Slot Status Management
+
+- **SWAPPABLE**: Available for swap requests
+- **BUSY**: Not available for swapping
+- **SWAP_PENDING**: Currently involved in pending swap request
+
+### Swap Request Flow
+
+1. **Request Creation**: User creates swap request between two SWAPPABLE slots
+2. **Status Update**: Both slots become SWAP_PENDING
+3. **Response Handling**:
+   - **Accept**: Atomic ownership exchange via MongoDB transactions
+   - **Reject**: Both slots revert to SWAPPABLE status
+
+### Atomic Swap Transaction
+
+When a swap is accepted, the system performs:
+
+1. Exchange task ownership (userId fields)
+2. Update both users' taskIds arrays
+3. Mark swap request as accepted
+4. Revert slot status to SWAPPABLE
+
+## 🧪 Testing the Swap System
+
+### 1. Setup Test Data
+
+```powershell
+# Seed database with Alice and Bob
+Invoke-RestMethod -Uri "http://localhost:3000/api/dev/seed" -Method POST
+```
+
+### 2. Login Users
+
+```powershell
+# Login Alice
+$aliceLogin = Invoke-RestMethod -Uri "http://localhost:3000/api/auth/login" -Method POST -Body '{"email":"alice@example.com","password":"secret123"}' -ContentType "application/json"
+$aliceHeaders = @{ Authorization = "Bearer $($aliceLogin.token)" }
+
+# Login Bob
+$bobLogin = Invoke-RestMethod -Uri "http://localhost:3000/api/auth/login" -Method POST -Body '{"email":"bob@example.com","password":"secret456"}' -ContentType "application/json"
+$bobHeaders = @{ Authorization = "Bearer $($bobLogin.token)" }
+```
+
+### 3. View Available Slots
+
+```powershell
+# Alice views Bob's swappable slots
+Invoke-RestMethod -Uri "http://localhost:3000/api/swappable-slots" -Headers $aliceHeaders
+```
+
+### 4. Create Swap Request
+
+```powershell
+# Alice requests to swap with Bob (replace with actual task IDs)
+$swapRequest = @{
+  mySlotId = "ALICE_TASK_ID"
+  theirSlotId = "BOB_TASK_ID"
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3000/api/swap-request" -Method POST -Body $swapRequest -ContentType "application/json" -Headers $aliceHeaders
+```
+
+### 5. Check Pending Requests
+
+```powershell
+# Bob checks his pending requests
+Invoke-RestMethod -Uri "http://localhost:3000/api/pending-requests" -Headers $bobHeaders
+```
+
+### 6. Accept/Reject Swap
+
+```powershell
+# Bob accepts the swap (replace with actual request ID)
+$acceptSwap = @{
+  requestId = "SWAP_REQUEST_ID"
+  accepted = $true
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3000/api/swap-response" -Method POST -Body $acceptSwap -ContentType "application/json" -Headers $bobHeaders
+```
+
+## 🚀 Quick Start Commands
+
+```bash
+# Install dependencies
+npm install --legacy-peer-deps
+
+# Start development server
+npm run dev
+
+# Test database connection
+curl http://localhost:3000/api/db
+
+# Seed test data
+curl -X POST http://localhost:3000/api/dev/seed
+```
+
+## 📁 Project Structure
+
+```
+slotswapper/
+├── app/
+│   ├── api/              # API routes
+│   │   ├── auth/         # Authentication endpoints
+│   │   ├── tasks/        # Task management
+│   │   ├── swappable-slots/    # Available slots
+│   │   ├── swap-request/       # Create swap requests
+│   │   ├── swap-response/      # Accept/reject swaps
+│   │   ├── pending-requests/   # View pending requests
+│   │   └── dev/seed/     # Test data seeding
+│   ├── layout.tsx        # Root layout
+│   └── page.tsx          # Home page
+├── components/           # React components
+├── lib/                  # Utilities
+│   ├── mongodb.ts       # Database connection
+│   └── auth.ts          # JWT utilities
+└── README.md            # This file
+```
+
+## 🧪 API Testing Guide
+
+### Authentication Endpoints
+
+#### 1. User Registration
+
+```bash
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "securepassword"
+}
+```
+
+#### 2. User Login
+
+```bash
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "securepassword"
+}
+```
+
+### Core API Endpoints
+
+#### 3. Seed Test Data (Development Only)
+
+```bash
+POST /api/dev/seed
+```
+
+_Creates Alice and Bob with sample tasks for testing_
+
+#### 4. Get User's Tasks
+
+```bash
+GET /api/tasks
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+#### 5. Create New Task
+
+```bash
+POST /api/tasks
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "title": "Team Meeting",
+  "date": "2025-11-10",
+  "start": "09:00",
+  "end": "10:00",
+  "description": "Weekly team sync"
+}
+```
+
+### Advanced Swap System APIs
+
+#### 6. Get Swappable Slots
+
+```bash
+GET /api/swappable-slots
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+_Returns all SWAPPABLE slots from other users_
+
+#### 7. Create Swap Request
+
+```bash
+POST /api/swap-request
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "mySlotId": "YOUR_TASK_ID",
+  "theirSlotId": "TARGET_TASK_ID"
+}
+```
+
+#### 8. Get Pending Requests
+
+```bash
+GET /api/pending-requests
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+#### 9. Respond to Swap Request
+
+```bash
+POST /api/swap-response
+Authorization: Bearer YOUR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "requestId": "SWAP_REQUEST_ID",
+  "accepted": true
+}
+```
+
+## 🧪 PowerShell Testing Examples
+
+### Complete API Test Flow
+
+```powershell
+# 1. Seed test data
+Invoke-RestMethod -Uri "http://localhost:3000/api/dev/seed" -Method POST
+
+# 2. Login as Alice
+$aliceLogin = Invoke-RestMethod -Uri "http://localhost:3000/api/auth/login" -Method POST -Body '{"email":"alice@example.com","password":"secret123"}' -ContentType "application/json"
+$aliceHeaders = @{ Authorization = "Bearer $($aliceLogin.token)" }
+
+# 3. Login as Bob
+$bobLogin = Invoke-RestMethod -Uri "http://localhost:3000/api/auth/login" -Method POST -Body '{"email":"bob@example.com","password":"secret456"}' -ContentType "application/json"
+$bobHeaders = @{ Authorization = "Bearer $($bobLogin.token)" }
+
+# 4. Get Alice's tasks
+Invoke-RestMethod -Uri "http://localhost:3000/api/tasks" -Headers $aliceHeaders
+
+# 5. Get swappable slots (Alice sees Bob's slots)
+Invoke-RestMethod -Uri "http://localhost:3000/api/swappable-slots" -Headers $aliceHeaders
+
+# 6. Create swap request
+$swapRequest = @{ mySlotId = "ALICE_TASK_ID"; theirSlotId = "BOB_TASK_ID" } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3000/api/swap-request" -Method POST -Body $swapRequest -ContentType "application/json" -Headers $aliceHeaders
+
+# 7. Check pending requests
+Invoke-RestMethod -Uri "http://localhost:3000/api/pending-requests" -Headers $bobHeaders
+
+# 8. Accept swap request
+$acceptSwap = @{ requestId = "REQUEST_ID"; accepted = $true } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3000/api/swap-response" -Method POST -Body $acceptSwap -ContentType "application/json" -Headers $bobHeaders
+```
+
+- Sticky requests tab for quick access
+- Detailed request view with times
+- Accept/reject swap requests
 
 4. **User Management**
    - Multiple users support
